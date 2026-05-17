@@ -6,12 +6,12 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.x-red?style=flat-square&logo=pytorch)](https://pytorch.org/)
 [![Python](https://img.shields.io/badge/Python-3.9+-blue?style=flat-square&logo=python)](https://python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
-[![HuggingFace](https://img.shields.io/badge/🤗%20Live%20Demo-Spaces-FFD21F?style=flat-square)](https://huggingface.co/spaces/amogh2222/deeptrace)
-[![Paper](https://img.shields.io/badge/Paper-Under%20Review%20(IEEE)-orange?style=flat-square)](https://github.com/amogh2222/DeepTrace)
+[![HuggingFace](https://img.shields.io/badge/🤗%20Live%20Demo-Spaces-FFD21F?style=flat-square)](https://huggingface.co/spaces/amogh2/deeptrace)
+[![Paper](https://img.shields.io/badge/Paper-Under%20Review%20(IEEE)-orange?style=flat-square)](#citation)
 
 **0.90 Accuracy &nbsp;·&nbsp; 0.9496 AUC &nbsp;·&nbsp; Runs on 6GB VRAM**
 
-[**🤗 Try Live Demo**](https://huggingface.co/spaces/amogh2222/deeptrace) &nbsp;·&nbsp; [**📄 Report**](docs/report.pdf) &nbsp;·&nbsp; [**⚙️ Architecture**](#architecture)
+[**🤗 Try Live Demo**](https://huggingface.co/spaces/amogh2/deeptrace) &nbsp;·&nbsp; [**⚙️ Architecture**](#architecture) &nbsp;·&nbsp; [**📊 Results**](#results)
 
 </div>
 
@@ -19,11 +19,9 @@
 
 ## The Problem
 
-Standard deepfake detectors are trained to spot RGB-level artifacts — subtle pixel inconsistencies left by GAN or diffusion generators. The problem: **a single JPEG compression cycle wipes most of these out.**
+Deepfake detectors built on RGB spatial features alone fail in the real world. A single JPEG compression cycle — the kind that happens every time content is uploaded to social media — strips the subtle pixel-level artifacts that standard CNNs rely on. Detection rates collapse on content that has been re-encoded even once.
 
-Upload a deepfake to Twitter, download it, run a standard detector — detection rate collapses. This is the real-world failure mode that makes existing single-modality models impractical for forensics.
-
-DeepTrace addresses this by fusing three forensic signals that are independently resilient to different classes of degradation.
+DeepTrace addresses this by fusing three forensic signals that are independently resilient to different classes of degradation, making detection robust under real-world media conditions.
 
 ---
 
@@ -44,11 +42,11 @@ DeepTrace addresses this by fusing three forensic signals that are independently
 
 > The threshold shift from 0.5 → 0.162 via post-hoc temperature scaling significantly reduces false negatives — critical for forensic use cases where missing a fake is worse than a false alarm.
 
-### vs. Baselines
+### Baseline Comparison
 
-| Model | AUC | Limitation |
-|-------|-----|------------|
-| MesoNet | ~0.84 | Spatial only, degrades under compression |
+| Model | AUC | Weakness |
+|-------|-----|----------|
+| MesoNet | ~0.84 | Spatial only — collapses under compression |
 | XceptionNet | ~0.91 | Strong on FF++ but large cross-dataset gap |
 | **DeepTrace V1 (ours)** | **0.9496** | Frequency + CLIP fusion, calibrated output |
 
@@ -56,7 +54,7 @@ DeepTrace addresses this by fusing three forensic signals that are independently
 
 ## Architecture
 
-Three parallel branches, one fusion layer.
+Three parallel branches, fused via cross-attention.
 
 ```
 Input Image / Video Frame
@@ -74,39 +72,26 @@ EfficientNet-B0    EfficientNet-B0     CLIP ViT-B/32
    Cross-Attention Fusion
    (learns per-input branch weighting)
          │
-   ┌─────┴─────────────┐
-   ▼                   ▼
-Real/Fake Class    GradCAM Heatmap
-+ Manip Type       (explainability)
-+ Confidence Score
-  (temperature-scaled)
+   ┌─────┴─────────────────┐
+   ▼                       ▼
+Real/Fake + Manip Type   GradCAM Heatmap
++ Calibrated Confidence  (explainability)
 ```
 
-**Why each branch exists:**
+**Why each branch:**
 
-- **Spatial (EfficientNet-B0):** Catches texture inconsistencies, blending boundary artifacts, geometric distortions. Best signal on uncompressed media.
-- **Frequency (DCT on YCrCb):** Deepfake generators leave characteristic patterns in the frequency domain that survive JPEG compression. This branch keeps working after social media re-encoding.
-- **Semantic (CLIP ViT-B/32, frozen):** Grounds representations in a rich visual-semantic space. Improves generalization to manipulation techniques the model has never seen in training.
+- **Spatial (EfficientNet-B0):** Catches texture inconsistencies, blending boundaries, geometric distortions. Best signal on uncompressed or lightly compressed media.
+- **Frequency (DCT on YCrCb):** Deepfake generators leave characteristic patterns in frequency space that survive JPEG re-encoding. This branch keeps working after social media compression.
+- **Semantic (CLIP ViT-B/32, frozen):** Grounds representations in a rich visual-semantic space, improving generalization to manipulation techniques unseen during training.
 
 ---
 
 ## Explainability
 
-GradCAM heatmaps show exactly what the model is looking at — not just a score.
+GradCAM heatmaps show exactly what the model attends to — not just a score.
 
-For **fake images**: activations concentrate on blending boundaries, unnatural skin texture zones, and eye/mouth regions where synthesis artifacts cluster.
-
-For **real images**: attention is diffuse — confirming the model isn't latching onto spurious background features.
-
-```
-docs/assets/
-├── fake_input.jpg      ← original fake face
-├── fake_gradcam.jpg    ← GradCAM activation map
-├── fake_overlay.jpg    ← overlay (blending artifacts highlighted)
-├── real_input.jpg
-├── real_gradcam.jpg
-└── real_overlay.jpg
-```
+- **Fake images:** Activations concentrate on blending boundaries, unnatural skin texture zones, eye/mouth regions where synthesis artifacts cluster.
+- **Real images:** Attention remains diffuse — confirming the model isn't latching onto background features.
 
 ---
 
@@ -123,14 +108,16 @@ pip install -r requirements.txt
 python inference/predict.py --input path/to/image.jpg
 ```
 
-**Gradio UI (local):**
+**Gradio UI:**
 ```bash
-python ui/app.py
-# or demo mode (no checkpoint needed):
+# With model checkpoint:
+python ui/app.py --checkpoint checkpoints/kaggle_realfake/best.pt
+
+# Demo mode (no checkpoint needed):
 python ui/app.py --demo
 ```
 
-**Evaluate on test set:**
+**Evaluate:**
 ```bash
 python evaluation/evaluate.py --checkpoint checkpoints/kaggle_realfake/best.pt
 ```
@@ -150,8 +137,8 @@ python training/train.py --config configs/v1.yaml
 | LR Schedule | Cosine with warmup |
 | Early stopping | Validation loss |
 | Augmentation | JPEG compression, Gaussian noise, color jitter, coarse dropout |
-| Mixed precision | AMP (torch.cuda.amp) |
-| Memory | Gradient checkpointing |
+| Mixed precision | AMP (`torch.cuda.amp`) |
+| Memory optimization | Gradient checkpointing |
 | Hardware | RTX 4050 · 6GB VRAM |
 
 **Multi-task loss:**
@@ -185,14 +172,13 @@ DeepTrace/
 ├── evaluation/         metrics, ROC, calibration scripts
 ├── explainability/     GradCAM implementation
 ├── inference/          single image + batch inference pipeline
-├── models/             DeepfakeDetector architecture definition
+├── models/             DeepfakeDetector architecture
 ├── scripts/            dataset preprocessing utilities
-├── training/           train loop, loss functions, schedulers
+├── training/           train loop, losses, schedulers
 ├── ui/                 Gradio web app
 ├── utils/              shared helpers
-├── calibration.py      post-hoc temperature scaling
-├── requirements.txt
-└── DATASET_SETUP.md
+├── calibration.py      temperature scaling
+└── requirements.txt
 ```
 
 ---
@@ -205,21 +191,20 @@ DeepTrace/
 - [x] Temperature-scaled confidence calibration
 - [x] Gradio UI + HuggingFace Spaces demo
 - [ ] V2: Video Swin Transformer temporal pipeline
-- [ ] Audio forgery detection (lip-sync inconsistency analysis)
+- [ ] Audio forgery detection (lip-sync inconsistency)
 - [ ] FAISS-based retrieval-augmented detection
 - [ ] FFT + wavelet multi-spectral analysis
-- [ ] HuggingFace Hub model weights upload
+- [ ] HuggingFace Hub model weights
 
 ---
 
 ## Citation
 
 ```bibtex
-@misc{srivastava2026deeptrace,
+@misc{deeptrace2026,
   title   = {DeepTrace: Multimodal Deepfake Detection via Hybrid Spatial-Frequency Learning},
-  author  = {Srivastava, Amogh and Rohit and Gaba, Udit},
+  author  = {Srivastava, Amogh},
   year    = {2026},
-  institution = {Manipal University Jaipur},
   url     = {https://github.com/amogh2222/DeepTrace}
 }
 ```
@@ -229,9 +214,3 @@ DeepTrace/
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-<div align="center">
-
-Built at Manipal University Jaipur &nbsp;·&nbsp; Department of Data Science & Engineering &nbsp;·&nbsp; 2026
-
-</div>
