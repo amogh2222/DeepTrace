@@ -80,6 +80,15 @@ def generate_forensic_report(result: dict) -> str:
             lines.append("MEDIUM CONFIDENCE: Some manipulation indicators detected. Manual review recommended.")
         else:
             lines.append("LOW CONFIDENCE: Weak indicators. Results should be verified with additional analysis.")
+                    if "compression_label" in result:
+
+            lines.extend([
+                "",
+                "--- COMPRESSION ANALYSIS ---",
+                f"Compression Severity: {result['compression_label']}",
+                f"Compression Quality Score: {result['compression_quality']:.3f}",
+                f"Adaptive Threshold Used: {result['threshold_used']:.3f}",
+            ])
 
     else:
         lines.extend([
