@@ -1,24 +1,21 @@
-from PIL import Image, ImageFilter
+from PIL import Image
 from pathlib import Path
-import random
 
 
 INPUT_DIR = "data/sample_images"
 OUTPUT_DIR = "benchmarks/compressionbench/jpeg"
-
 
 Path(OUTPUT_DIR).mkdir(
     parents=True,
     exist_ok=True
 )
 
-
 qualities = [10, 20, 40, 60]
-
 
 for img_path in Path(INPUT_DIR).glob("*"):
 
     try:
+
         img = Image.open(img_path).convert("RGB")
 
         for q in qualities:
@@ -33,8 +30,10 @@ for img_path in Path(INPUT_DIR).glob("*"):
                 quality=q
             )
 
-    except:
-        pass
+            print(f"Saved: {out_path}")
 
+    except Exception as e:
 
-print("CompressionBench JPEG generation complete")
+        print(e)
+
+print("CompressionBench generation complete")
