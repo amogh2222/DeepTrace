@@ -12,7 +12,9 @@ import logging
 import yaml
 
 from models.detector import DeepfakeDetector
-from datasets.transforms import get_val_transforms, apply_dct_transform
+from utils.transforms import (
+    get_val_transforms
+)
 from explainability.gradcam import GradCAM
 from explainability.forensic_report import generate_forensic_report
 from calibration import ModelWithTemperature, load_calibration_dict, resolve_calibration_path
