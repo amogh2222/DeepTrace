@@ -1,8 +1,14 @@
 import torch
 import torch.nn as nn
 
-from models.compression_state_estimator import CompressionStateEstimator
-from models.ccta import CompressionConditionedThreshold
+from models.compression_state_estimator import (
+    CompressionStateEstimator
+)
+
+from models.ccta import (
+    CompressionConditionedThreshold
+)
+
 from models.cifd import CIFD
 
 
@@ -15,6 +21,7 @@ class CATMDWrapper(nn.Module):
         freq_feature_dim=1280,
         freeze_base=True
     ):
+
         super().__init__()
 
         self.base_model = base_model
@@ -30,17 +37,29 @@ class CATMDWrapper(nn.Module):
         )
 
         if freeze_base:
+
             for p in self.base_model.parameters():
+
                 p.requires_grad_(False)
 
     def forward(
+
         self,
         images,
         mode="image",
         **kwargs
+
     ):
 
+        # ---------------------------------
+        # Compression estimation
+        # ---------------------------------
+
         quality_score = self.cse(images)
+
+        # ---------------------------------
+        # Base detector inference
+        # ---------------------------------
 
         base_out = self.base_model(
             images,
@@ -52,6 +71,10 @@ class CATMDWrapper(nn.Module):
 
         probs = torch.sigmoid(logits)
 
+        # ---------------------------------
+        # Adaptive thresholding
+        # ---------------------------------
+
         ccta_out = self.ccta(
             logits,
             quality_score
@@ -59,14 +82,31 @@ class CATMDWrapper(nn.Module):
 
         q = quality_score.mean().item()
 
-        if q < 0.3:
-            compression_label = "heavily_compressed"
+        # ---------------------------------
+        # Compression labels
+        # ---------------------------------
+
+        if q < 0.30:
+
+            compression_label = (
+                "heavily_compressed"
+            )
 
         elif q < 0.65:
-            compression_label = "moderately_compressed"
+
+            compression_label = (
+                "moderately_compressed"
+            )
 
         else:
-            compression_label = "near_pristine"
+
+            compression_label = (
+                "near_pristine"
+            )
+
+        # ---------------------------------
+        # Final outputs
+        # ---------------------------------
 
         result = dict(base_out)
 
@@ -95,7 +135,15 @@ class CATMDWrapper(nn.Module):
                 q,
 
             "compression_label":
-                compression_label
+                compression_label,
+
+            "adaptive_prediction":
+                "FAKE"
+                if ccta_out["predictions"]
+                .bool()
+                .any()
+                .item()
+                else "REAL"
         })
 
         return result
