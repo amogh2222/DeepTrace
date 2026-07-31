@@ -8,7 +8,7 @@ check_and_train_new_dataset.py
 
 Run from project root:
     python scripts/check_and_train_new_dataset.py
-    python scripts/check_and_train_new_dataset.py --zip_path "C:/Users/Udit/Desktop/datasetkeagle.zip"
+    python scripts/check_and_train_new_dataset.py --zip_path "C:/Users/Amogh/Desktop/datasetkeagle.zip"
     python scripts/check_and_train_new_dataset.py --force_train   (skip sameness check)
 """
 
