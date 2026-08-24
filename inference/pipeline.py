@@ -13,6 +13,9 @@ from datasets.transforms import (
     get_val_transforms
 )
 
+from utils.transforms import (
+    get_val_transforms
+)
 from explainability.gradcam import GradCAM
 from explainability.forensic_report import (
     generate_forensic_report
